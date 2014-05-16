@@ -28,6 +28,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.wicket.Application;
 import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -47,6 +48,7 @@ import com.gitblit.utils.ByteFormat;
 import com.gitblit.utils.JGitUtils;
 import com.gitblit.utils.MarkdownUtils;
 import com.gitblit.utils.StringUtils;
+import com.gitblit.wicket.GitBlitWebApp;
 import com.gitblit.wicket.MarkupProcessor;
 import com.gitblit.wicket.MarkupProcessor.MarkupDocument;
 
@@ -65,13 +67,15 @@ public class PagesServlet extends DaggerServlet {
 	private transient Logger logger = LoggerFactory.getLogger(PagesServlet.class);
 
 	private IStoredSettings settings;
-
+	private GitBlitWebApp app;
+	
 	private IRepositoryManager repositoryManager;
 
 	@Override
 	protected void inject(ObjectGraph dagger) {
 		this.settings = dagger.get(IStoredSettings.class);
 		this.repositoryManager = dagger.get(IRepositoryManager.class);
+		this.app=dagger.get(GitBlitWebApp.class);
 	}
 
 	/**
@@ -160,7 +164,7 @@ public class PagesServlet extends DaggerServlet {
 				return;
 			}
 
-			MarkupProcessor processor = new MarkupProcessor(settings);
+			MarkupProcessor processor = new MarkupProcessor(app);
 			String [] encodings = settings.getStrings(Keys.web.blobEncodings).toArray(new String[0]);
 
 			RevTree tree = commit.getTree();
@@ -290,10 +294,10 @@ public class PagesServlet extends DaggerServlet {
 			}
 
 			// check to see if we should transform markup files
-			String ext = StringUtils.getFileExtension(resource);
-			if (processor.getMarkupExtensions().contains(ext)) {
+			String ext = StringUtils.getFileExtension(res);
+			if (processor.isMarkupExtension(ext)) {
 				String markup = new String(content, Constants.ENCODING);
-				MarkupDocument markupDoc = processor.parse(repository, commit.getName(), resource, markup);
+				MarkupDocument markupDoc = processor.parse(repository, commit.getName(), res, markup);
 				content = markupDoc.html.getBytes("UTF-8");
 				response.setContentType("text/html; charset=" + Constants.ENCODING);
 			}

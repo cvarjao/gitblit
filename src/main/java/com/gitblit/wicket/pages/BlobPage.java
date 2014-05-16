@@ -72,12 +72,10 @@ public class BlobPage extends RepositoryPage {
 			}
 
 			// see if we should redirect to the doc page
-			MarkupProcessor processor = new MarkupProcessor(app().settings());
-			for (String ext : processor.getMarkupExtensions()) {
-				if (ext.equals(extension)) {
-					setResponsePage(DocPage.class, params);
-					return;
-				}
+			MarkupProcessor processor = new MarkupProcessor(app());
+			if (processor.isMarkupExtension(extension)) {
+				setResponsePage(DocPage.class, params);
+				return;
 			}
 
 			RevCommit commit = getCommit();

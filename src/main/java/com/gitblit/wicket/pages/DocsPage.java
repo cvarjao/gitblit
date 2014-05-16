@@ -48,7 +48,7 @@ public class DocsPage extends RepositoryPage {
 	public DocsPage(PageParameters params) {
 		super(params);
 
-		MarkupProcessor processor = new MarkupProcessor(app().settings());
+		MarkupProcessor processor = new MarkupProcessor(app());
 
 		Repository r = getRepository();
 		RevCommit head = JGitUtils.getCommit(r, null);
@@ -111,7 +111,7 @@ public class DocsPage extends RepositoryPage {
 					file = StringUtils.stripFileExtension(file);
 					Component content = new Label("content", doc.html)
 						.setEscapeModelStrings(false);
-					if (!MarkupSyntax.PLAIN.equals(doc.syntax)) {
+					if (!doc.isPlainText()) {
 						content.add(new SimpleAttributeModifier("class", "markdown"));
 					}
 					item.add(content);

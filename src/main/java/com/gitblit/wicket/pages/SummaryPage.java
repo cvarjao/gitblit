@@ -138,13 +138,13 @@ public class SummaryPage extends RepositoryPage {
 			MarkupDocument markupDoc = null;
 			RevCommit head = JGitUtils.getCommit(r, null);
 			if (head != null) {
-				MarkupProcessor processor = new MarkupProcessor(app().settings());
+				MarkupProcessor processor = new MarkupProcessor(app());
 				markupDoc = processor.getReadme(r, repositoryName, getBestCommitId(head));
 			}
-			if (markupDoc == null || markupDoc.markup == null) {
+			if (markupDoc == null || markupDoc.markupText == null) {
 				add(new Label("readme").setVisible(false));
 			} else {
-				Fragment fragment = new Fragment("readme", MarkupSyntax.PLAIN.equals(markupDoc.syntax) ? "plaintextPanel" : "markdownPanel", this);
+				Fragment fragment = new Fragment("readme", markupDoc.isPlainText() ? "plaintextPanel" : "markdownPanel", this);
 				fragment.add(new Label("readmeFile", markupDoc.documentPath));
 				// Add the html to the page
 				Component content = new Label("readmeContent", markupDoc.html).setEscapeModelStrings(false);

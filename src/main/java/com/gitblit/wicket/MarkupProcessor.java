@@ -15,12 +15,8 @@
  */
 package com.gitblit.wicket;
 
-import static org.pegdown.FastEncoder.encode;
-
 import java.io.Serializable;
-import java.io.StringWriter;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
+import java.lang.reflect.Constructor;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,38 +25,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.wicket.Page;
-import org.apache.wicket.RequestCycle;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.mylyn.wikitext.confluence.core.ConfluenceLanguage;
-import org.eclipse.mylyn.wikitext.core.parser.Attributes;
-import org.eclipse.mylyn.wikitext.core.parser.MarkupParser;
-import org.eclipse.mylyn.wikitext.core.parser.builder.HtmlDocumentBuilder;
-import org.eclipse.mylyn.wikitext.core.parser.markup.MarkupLanguage;
-import org.eclipse.mylyn.wikitext.mediawiki.core.MediaWikiLanguage;
-import org.eclipse.mylyn.wikitext.textile.core.TextileLanguage;
-import org.eclipse.mylyn.wikitext.tracwiki.core.TracWikiLanguage;
-import org.eclipse.mylyn.wikitext.twiki.core.TWikiLanguage;
 import org.pegdown.DefaultVerbatimSerializer;
 import org.pegdown.LinkRenderer;
 import org.pegdown.ToHtmlSerializer;
 import org.pegdown.VerbatimSerializer;
-import org.pegdown.ast.ExpImageNode;
-import org.pegdown.ast.RefImageNode;
-import org.pegdown.ast.WikiLinkNode;
 import org.pegdown.plugins.ToHtmlSerializerPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.gitblit.IStoredSettings;
 import com.gitblit.Keys;
+import com.gitblit.markup.MarkupParser;
+import com.gitblit.markup.PlainTextSyntax;
+import com.gitblit.markup.RawTextSyntax;
 import com.gitblit.models.PathModel;
 import com.gitblit.utils.JGitUtils;
-import com.gitblit.utils.MarkdownUtils;
 import com.gitblit.utils.StringUtils;
-import com.gitblit.wicket.pages.DocPage;
-import com.gitblit.wicket.pages.RawPage;
 import com.google.common.base.Joiner;
 
 /**
@@ -80,18 +62,18 @@ public class MarkupProcessor {
 
 	private final IStoredSettings settings;
 
-	public MarkupProcessor(IStoredSettings settings) {
-		this.settings = settings;
+	private final GitBlitWebApp app;
+
+	public MarkupProcessor(GitBlitWebApp app) {
+		this.app=app;
+		this.settings = app.settings();
 	}
 
 	public List<String> getMarkupExtensions() {
 		List<String> list = new ArrayList<String>();
-		list.addAll(settings.getStrings(Keys.web.confluenceExtensions));
-		list.addAll(settings.getStrings(Keys.web.markdownExtensions));
-		list.addAll(settings.getStrings(Keys.web.mediawikiExtensions));
-		list.addAll(settings.getStrings(Keys.web.textileExtensions));
-		list.addAll(settings.getStrings(Keys.web.tracwikiExtensions));
-		list.addAll(settings.getStrings(Keys.web.twikiExtensions));
+		for (MarkupParser parser:getAllParsers()){
+			list.addAll(parser.getExtensions());
+		}
 		return list;
 	}
 
@@ -109,28 +91,40 @@ public class MarkupProcessor {
 	private String [] getEncodings() {
 		return settings.getStrings(Keys.web.blobEncodings).toArray(new String[0]);
 	}
-
-	private MarkupSyntax determineSyntax(String documentPath) {
+	public boolean isMarkupExtension(String ext){
+		MarkupParser parser=null;
+		try {
+			parser=determineParser("file."+ext);
+		} catch (Exception e) {
+			logger.error(e.getLocalizedMessage(), e);
+		}
+		return parser==null || !MarkupSyntax.PLAIN.equals(parser.getSyntax());
+	}
+	private List<MarkupParser> getAllParsers() {
+		List<MarkupParser> classes=new ArrayList<>();
+		List<String> parsers=settings.getStrings(Keys.web.markupParsers);
+		for (String parser:parsers){
+			MarkupParser parserObj;
+			try {
+				Constructor<?> constructor=Class.forName(parser).getConstructor(new Class[]{GitBlitWebApp.class});
+				parserObj = (MarkupParser) constructor.newInstance(app);
+				classes.add(parserObj);
+			} catch (Exception e) {
+				logger.error(e.getLocalizedMessage(), e);
+			}
+		}
+		return classes;
+	}
+	private MarkupParser determineParser(String documentPath) throws InstantiationException, IllegalAccessException, ClassNotFoundException {
 		String ext = StringUtils.getFileExtension(documentPath).toLowerCase();
-		if (StringUtils.isEmpty(ext)) {
-			return MarkupSyntax.PLAIN;
+		List<MarkupParser> parsers=getAllParsers();
+		
+		for (MarkupParser parser:parsers){
+			if (parser.canHandle(ext, documentPath)){
+				return parser;
+			}
 		}
-
-		if (settings.getStrings(Keys.web.confluenceExtensions).contains(ext)) {
-			return MarkupSyntax.CONFLUENCE;
-		} else if (settings.getStrings(Keys.web.markdownExtensions).contains(ext)) {
-			return MarkupSyntax.MARKDOWN;
-		} else if (settings.getStrings(Keys.web.mediawikiExtensions).contains(ext)) {
-			return MarkupSyntax.MEDIAWIKI;
-		} else if (settings.getStrings(Keys.web.textileExtensions).contains(ext)) {
-			return MarkupSyntax.TEXTILE;
-		} else if (settings.getStrings(Keys.web.tracwikiExtensions).contains(ext)) {
-			return MarkupSyntax.TRACWIKI;
-		} else if (settings.getStrings(Keys.web.twikiExtensions).contains(ext)) {
-			return MarkupSyntax.TWIKI;
-		}
-
-		return MarkupSyntax.PLAIN;
+		return null;
 	}
 
 	public boolean hasRootDocs(Repository r) {
@@ -197,193 +191,65 @@ public class MarkupProcessor {
 	}
 
 	public MarkupDocument parse(String repositoryName, String commitId, String documentPath, String markupText) {
-		final MarkupSyntax syntax = determineSyntax(documentPath);
-		final MarkupDocument doc = new MarkupDocument(documentPath, markupText, syntax);
 
-		if (markupText != null) {
-			try {
-				switch (syntax){
-				case CONFLUENCE:
-					parse(doc, repositoryName, commitId, new ConfluenceLanguage());
-					break;
-				case MARKDOWN:
-					parse(doc, repositoryName, commitId);
-					break;
-				case MEDIAWIKI:
-					parse(doc, repositoryName, commitId, new MediaWikiLanguage());
-					break;
-				case TEXTILE:
-					parse(doc, repositoryName, commitId, new TextileLanguage());
-					break;
-				case TRACWIKI:
-					parse(doc, repositoryName, commitId, new TracWikiLanguage());
-					break;
-				case TWIKI:
-					parse(doc, repositoryName, commitId, new TWikiLanguage());
-					break;
-				default:
-					doc.html = MarkdownUtils.transformPlainText(markupText);
-					break;
-				}
-			} catch (Exception e) {
-				logger.error("failed to transform " + syntax, e);
-			}
-		}
-
-		if (doc.html == null) {
-			// failed to transform markup
-			if (markupText == null) {
-				markupText = String.format("Document <b>%1$s</b> not found in <em>%2$s</em>", documentPath, repositoryName);
-			}
-			markupText = MessageFormat.format("<div class=\"alert alert-error\"><strong>{0}:</strong> {1}</div>{2}", "Error", "failed to parse markup", markupText);
-			doc.html = StringUtils.breakLinesForHtml(markupText);
-		}
-
-		return doc;
-	}
-
-	/**
-	 * Parses the markup using the specified markup language
-	 *
-	 * @param doc
-	 * @param repositoryName
-	 * @param commitId
-	 * @param lang
-	 */
-	private void parse(final MarkupDocument doc, final String repositoryName, final String commitId, MarkupLanguage lang) {
-		StringWriter writer = new StringWriter();
-		HtmlDocumentBuilder builder = new HtmlDocumentBuilder(writer) {
-
-			@Override
-			public void image(Attributes attributes, String imagePath) {
-				String url;
-				if (imagePath.indexOf("://") == -1) {
-					// relative image
-					String path = doc.getRelativePath(imagePath);
-					url = getWicketUrl(RawPage.class, repositoryName, commitId, path);
-				} else {
-					// absolute image
-					url = imagePath;
-				}
-				super.image(attributes, url);
-			}
-
-			@Override
-			public void link(Attributes attributes, String hrefOrHashName, String text) {
-				String url;
-				if (hrefOrHashName.charAt(0) != '#') {
-					if (hrefOrHashName.indexOf("://") == -1) {
-						// relative link
-						String path = doc.getRelativePath(hrefOrHashName);
-						url = getWicketUrl(DocPage.class, repositoryName, commitId, path);
-					} else {
-						// absolute link
-						url = hrefOrHashName;
-					}
-				} else {
-					// page-relative hash link
-					url = hrefOrHashName;
-				}
-				super.link(attributes, url, text);
-			}
-		};
-
-		// avoid the <html> and <body> tags
-		builder.setEmitAsDocument(false);
-
-		MarkupParser parser = new MarkupParser(lang);
-		parser.setBuilder(builder);
-		parser.parse(doc.markup);
-		doc.html = writer.toString();
-	}
-
-	/**
-	 * Parses the document as Markdown using Pegdown.
-	 *
-	 * @param doc
-	 * @param repositoryName
-	 * @param commitId
-	 */
-	private void parse(final MarkupDocument doc, final String repositoryName, final String commitId) {
-		LinkRenderer renderer = new LinkRenderer() {
-
-			@Override
-			public Rendering render(ExpImageNode node, String text) {
-				if (node.url.indexOf("://") == -1) {
-					// repository-relative image link
-					String path = doc.getRelativePath(node.url);
-					String url = getWicketUrl(RawPage.class, repositoryName, commitId, path);
-					return new Rendering(url, text);
-				}
-				// absolute image link
-				return new Rendering(node.url, text);
-			}
-
-			@Override
-			public Rendering render(RefImageNode node, String url, String title, String alt) {
-				Rendering rendering;
-				if (url.indexOf("://") == -1) {
-					// repository-relative image link
-					String path = doc.getRelativePath(url);
-					String wurl = getWicketUrl(RawPage.class, repositoryName, commitId, path);
-					rendering = new Rendering(wurl, alt);
-				} else {
-					// absolute image link
-					rendering = new Rendering(url, alt);
-				}
-				return StringUtils.isEmpty(title) ? rendering : rendering.withAttribute("title", encode(title));
-			}
-
-			@Override
-			public Rendering render(WikiLinkNode node) {
-				String path = doc.getRelativePath(node.getText());
-				String name = getDocumentName(path);
-				String url = getWicketUrl(DocPage.class, repositoryName, commitId, path);
-				return new Rendering(url, name);
-			}
-		};
-		doc.html = MarkdownUtils.transformMarkdown(doc.markup, renderer);
-	}
-
-	private String getWicketUrl(Class<? extends Page> pageClass, final String repositoryName, final String commitId, final String document) {
-		String fsc = settings.getString(Keys.web.forwardSlashCharacter, "/");
-		String encodedPath = document.replace(' ', '-');
+		
+		MarkupParser defaultSyntax = new RawTextSyntax(app);
+		MarkupParser syntax = defaultSyntax;
 		try {
-			encodedPath = URLEncoder.encode(encodedPath, "UTF-8");
-		} catch (UnsupportedEncodingException e) {
-			logger.error(null, e);
+			syntax = determineParser(documentPath);
+		} catch (InstantiationException e) {
+			logger.error(e.getLocalizedMessage(), e);
+		} catch (IllegalAccessException e) {
+			logger.error(e.getLocalizedMessage(), e);
+		} catch (ClassNotFoundException e) {
+			logger.error(e.getLocalizedMessage(), e);
 		}
-		encodedPath = encodedPath.replace("/", fsc).replace("%2F", fsc);
-
-		String url = RequestCycle.get().urlFor(pageClass, WicketUtils.newPathParameter(repositoryName, commitId, encodedPath)).toString();
-		return url;
-	}
-
-	private String getDocumentName(final String document) {
-		// extract document name
-		String name = StringUtils.stripFileExtension(document);
-		name = name.replace('_', ' ');
-		if (name.indexOf('/') > -1) {
-			name = name.substring(name.lastIndexOf('/') + 1);
+		if (syntax==null){
+			syntax=defaultSyntax;
 		}
-		return name;
+		final MarkupDocument doc = new MarkupDocument(repositoryName, commitId, documentPath, markupText, syntax);
+		doc.parse(settings);
+		return doc;
 	}
 
 	public static class MarkupDocument implements Serializable {
 
 		private static final long serialVersionUID = 1L;
 
+		public final String repositoryName;
+		public final String commitId;
 		public final String documentPath;
-		public final String markup;
-		public final MarkupSyntax syntax;
+		public final String markupText;
+		public final MarkupParser parser;
 		public String html;
 
-		MarkupDocument(String documentPath, String markup, MarkupSyntax syntax) {
+		MarkupDocument(String repositoryName, String commitId, String documentPath, String markupText, MarkupParser parser) {
+			this.repositoryName=repositoryName;
+			this.commitId=commitId;
 			this.documentPath = documentPath;
-			this.markup = markup;
-			this.syntax = syntax;
+			this.markupText = markupText;
+			this.parser = parser;
 		}
-
+		
+		public boolean isPlainText(){
+			return MarkupSyntax.PLAIN.equals(getSyntax());
+		}
+		
+		private MarkupSyntax getSyntax(){
+			return this.parser.getSyntax();
+		}
+		public void parse(IStoredSettings settings){
+			if (parser!=null) parser.parse(settings, this, repositoryName, commitId);
+			if (this.html == null) {
+				String newMarkupText=markupText;
+				// failed to transform markup
+				if (newMarkupText == null) {
+					newMarkupText = String.format("Document <b>%1$s</b> not found in <em>%2$s</em>", documentPath, repositoryName);
+				}
+				newMarkupText = MessageFormat.format("<div class=\"alert alert-error\"><strong>{0}:</strong> {1}</div>{2}", "Error", "failed to parse markup", newMarkupText);
+				this.html = StringUtils.breakLinesForHtml(newMarkupText);
+			}
+		}
 		String getCurrentPath() {
 			String basePath = "";
 			if (documentPath.indexOf('/') > -1) {
@@ -395,7 +261,7 @@ public class MarkupProcessor {
 			return basePath;
 		}
 
-		String getRelativePath(String ref) {
+		public String getRelativePath(String ref) {
 			if (ref.charAt(0) == '/') {
 				// absolute path in repository
 				return ref.substring(1);

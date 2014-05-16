@@ -41,7 +41,7 @@ public class DocPage extends RepositoryPage {
 		super(params);
 
 		final String path = WicketUtils.getPath(params).replace("%2f", "/").replace("%2F", "/");
-		MarkupProcessor processor = new MarkupProcessor(app().settings());
+		MarkupProcessor processor = new MarkupProcessor(app());
 
 		Repository r = getRepository();
 		RevCommit commit = JGitUtils.getCommit(r, objectId);
@@ -76,7 +76,7 @@ public class DocPage extends RepositoryPage {
 
 		Fragment fragment;
 		MarkupDocument markupDoc = processor.parse(repositoryName, getBestCommitId(commit), documentPath, markupText);
-		if (MarkupSyntax.PLAIN.equals(markupDoc.syntax)) {
+		if (markupDoc.isPlainText()) {
 			fragment = new Fragment("doc", "plainContent", this);
 		} else {
 			fragment = new Fragment("doc", "markupContent", this);

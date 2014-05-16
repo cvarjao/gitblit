@@ -186,9 +186,9 @@ public class WicketUtils {
 			return newImage(wicketId, "file_settings_16x16.png");
 		}
 
-		MarkupProcessor processor = new MarkupProcessor(GitBlitWebApp.get().settings());
+		MarkupProcessor processor = new MarkupProcessor(GitBlitWebApp.get());
 		String ext = StringUtils.getFileExtension(filename).toLowerCase();
-		if (processor.getMarkupExtensions().contains(ext)) {
+		if (processor.isMarkupExtension(ext)) {
 			return newImage(wicketId, "file_world_16x16.png");
 		}
 		return newImage(wicketId, "file_16x16.png");
