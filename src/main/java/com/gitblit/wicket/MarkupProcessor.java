@@ -38,11 +38,13 @@ import org.slf4j.LoggerFactory;
 import com.gitblit.IStoredSettings;
 import com.gitblit.Keys;
 import com.gitblit.markup.MarkupParser;
+import com.gitblit.markup.PageResourceContext;
 import com.gitblit.markup.PlainTextSyntax;
 import com.gitblit.markup.RawTextSyntax;
 import com.gitblit.models.PathModel;
 import com.gitblit.utils.JGitUtils;
 import com.gitblit.utils.StringUtils;
+import com.gitblit.wicket.MarkupProcessor.MarkupDocument;
 import com.google.common.base.Joiner;
 
 /**
@@ -190,6 +192,10 @@ public class MarkupProcessor {
 		return list;
 	}
 
+	public MarkupDocument parse(PageResourceContext context, String rawContent) {
+		return this.parse(context.getRevisionContext().getRepositoryName(), context.getRevisionContext().getRevCommit().getName(), context.getPath(), rawContent);
+	}
+	
 	public MarkupDocument parse(String repositoryName, String commitId, String documentPath, String markupText) {
 
 		

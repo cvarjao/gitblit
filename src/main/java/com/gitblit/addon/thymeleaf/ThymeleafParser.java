@@ -1,4 +1,4 @@
-package com.gitblit.markup;
+package com.gitblit.addon.thymeleaf;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -19,7 +19,6 @@ import org.thymeleaf.context.Context;
 import org.thymeleaf.context.IContext;
 import org.thymeleaf.context.IWebContext;
 import org.thymeleaf.context.VariablesMap;
-import org.thymeleaf.context.WebContext;
 import org.thymeleaf.resourceresolver.IResourceResolver;
 import org.thymeleaf.templateresolver.TemplateResolver;
 
@@ -27,6 +26,8 @@ import com.gitblit.IStoredSettings;
 import com.gitblit.Keys;
 import com.gitblit.dagger.DaggerContext;
 import com.gitblit.manager.IRepositoryManager;
+import com.gitblit.markup.AbstractMarkupSyntax;
+import com.gitblit.markup.MockHttpServletRequest;
 import com.gitblit.models.RefModel;
 import com.gitblit.utils.JGitUtils;
 import com.gitblit.wicket.GitBlitWebApp;
@@ -61,7 +62,6 @@ public class ThymeleafParser extends AbstractMarkupSyntax{
 
 		@Override
 		public HttpSession getHttpSession() {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
@@ -72,25 +72,21 @@ public class ThymeleafParser extends AbstractMarkupSyntax{
 
 		@Override
 		public VariablesMap<String, String[]> getRequestParameters() {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public VariablesMap<String, Object> getRequestAttributes() {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public VariablesMap<String, Object> getSessionAttributes() {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public VariablesMap<String, Object> getApplicationAttributes() {
-			// TODO Auto-generated method stub
 			return null;
 		}
 		

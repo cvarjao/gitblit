@@ -26,7 +26,7 @@ import javax.servlet.http.HttpSession;
 import javax.servlet.http.HttpUpgradeHandler;
 import javax.servlet.http.Part;
 
-class MockHttpServletRequest implements HttpServletRequest {
+public class MockHttpServletRequest implements HttpServletRequest {
 
 	private String contextPath;
 

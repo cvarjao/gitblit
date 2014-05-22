@@ -32,7 +32,7 @@ public class RawTextSyntax extends AbstractMarkupSyntax implements MarkupParser 
 	}
 	@Override
 	public List<String> getExtensions() {
-		return new ArrayList<>();
+		return new ArrayList<String>();
 	}
 
 }

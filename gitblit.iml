@@ -790,6 +790,50 @@
         </SOURCES>
       </library>
     </orderEntry>
+    <orderEntry type="module-library">
+      <library name="thymeleaf-2.1.3.RELEASE.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/ext/thymeleaf-2.1.3.RELEASE.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="jar://$MODULE_DIR$/ext/src/thymeleaf-2.1.3.RELEASE.jar!/" />
+        </SOURCES>
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="ognl-3.0.6.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/ext/ognl-3.0.6.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="jar://$MODULE_DIR$/ext/src/ognl-3.0.6.jar!/" />
+        </SOURCES>
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="javassist-3.16.1-GA.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/ext/javassist-3.16.1-GA.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="jar://$MODULE_DIR$/ext/src/javassist-3.16.1-GA.jar!/" />
+        </SOURCES>
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="unbescape-1.0.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/ext/unbescape-1.0.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="jar://$MODULE_DIR$/ext/src/unbescape-1.0.jar!/" />
+        </SOURCES>
+      </library>
+    </orderEntry>
     <orderEntry type="module-library" scope="TEST">
       <library name="junit-4.11.jar">
         <CLASSES>
